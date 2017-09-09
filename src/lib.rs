@@ -5,6 +5,8 @@ pub trait Sequence<E: Clone> {
     type R2: Sequence<E>;
     type R3: Sequence<E>;
 
+    fn is_empty(&self) -> bool;
+
     fn cons(&self, el: E) -> Self::R1;
 
     fn first(&self) -> Option<&E>;
@@ -31,6 +33,14 @@ impl<E: Clone> Sequence<E> for Rc<List<E>> {
     type R2 = Rc<List<E>>;
     type R3 = Rc<List<E>>;
 
+    fn is_empty(&self) -> bool {
+        use List::*;
+        match **self {
+            Nil => true,
+            Cons(_, _) => false,
+        }
+    }
+
     fn cons(&self, el: E) -> Self::R1 {
         Rc::new(List::Cons(el, self.clone()))
     }
@@ -52,13 +62,17 @@ impl<E: Clone> Sequence<E> for Rc<List<E>> {
     }
 
     fn update(&self, index: u8, val: E) -> Self::R3 {
-        use List::*;
         if index == 0 {
             self.rest().cons(val)
         } else {
-            match **self {
-                Nil => panic!("ahhhhhh!"),
-                Cons(ref el, ref rest) => rest.update(index - 1, val).cons(el.clone()),
+            if self.is_empty() {
+                panic!("ahhhhhh!")
+            } else {
+                self.rest().update(index - 1, val).cons(
+                    self.first()
+                        .unwrap()
+                        .clone(),
+                )
             }
         }
     }
