@@ -1,19 +1,15 @@
 use std::rc::Rc;
 
 pub trait Sequence<E: Clone> {
-    type R1: Sequence<E>;
-    type R2: Sequence<E>;
-    type R3: Sequence<E>;
-
     fn is_empty(&self) -> bool;
 
-    fn cons(&self, el: E) -> Self::R1;
+    fn cons(&self, el: E) -> Self;
 
     fn first(&self) -> Option<&E>;
 
-    fn rest(&self) -> Self::R2;
+    fn rest(&self) -> Self;
 
-    fn update(&self, index: u8, val: E) -> Self::R3;
+    fn update(&self, index: u8, val: E) -> Self;
 }
 
 #[derive(Debug, PartialEq)]
@@ -29,10 +25,6 @@ impl<E> List<E> {
 }
 
 impl<E: Clone> Sequence<E> for Rc<List<E>> {
-    type R1 = Rc<List<E>>;
-    type R2 = Rc<List<E>>;
-    type R3 = Rc<List<E>>;
-
     fn is_empty(&self) -> bool {
         use List::*;
         match **self {
@@ -41,7 +33,7 @@ impl<E: Clone> Sequence<E> for Rc<List<E>> {
         }
     }
 
-    fn cons(&self, el: E) -> Self::R1 {
+    fn cons(&self, el: E) -> Self {
         Rc::new(List::Cons(el, self.clone()))
     }
 
@@ -53,7 +45,7 @@ impl<E: Clone> Sequence<E> for Rc<List<E>> {
         }
     }
 
-    fn rest(&self) -> Self::R2 {
+    fn rest(&self) -> Self {
         use List::*;
         match **self {
             Nil => self.clone(),
@@ -61,7 +53,7 @@ impl<E: Clone> Sequence<E> for Rc<List<E>> {
         }
     }
 
-    fn update(&self, index: u8, val: E) -> Self::R3 {
+    fn update(&self, index: u8, val: E) -> Self {
         if index == 0 {
             self.rest().cons(val)
         } else {
