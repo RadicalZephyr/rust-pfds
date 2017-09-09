@@ -54,11 +54,11 @@ impl<E: Clone> Sequence<E> for Rc<List<E>> {
     fn update(&self, index: u8, val: E) -> Self::R3 {
         use List::*;
         if index == 0 {
-            Rc::new(Cons(val, self.rest()))
+            self.rest().cons(val)
         } else {
             match **self {
                 Nil => panic!("ahhhhhh!"),
-                Cons(ref el, ref rest) => Rc::new(Cons(el.clone(), rest.update(index - 1, val))),
+                Cons(ref el, ref rest) => rest.update(index - 1, val).cons(el.clone()),
             }
         }
     }
