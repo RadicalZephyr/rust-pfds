@@ -82,6 +82,15 @@ impl<E: Clone> Sequence<E> for Rc<List<E>> {
     }
 }
 
+
+fn suffixes<E: Clone>(list: &Rc<List<E>>) -> Rc<List<Rc<List<E>>>> {
+    if list.is_empty() {
+        List::new().cons(list.clone())
+    } else {
+        suffixes(&list.rest()).cons(list.clone())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -170,5 +179,33 @@ mod tests {
         assert_eq!(ys.first(), Some(&4));
         assert_eq!(ys.rest().first(), Some(&3));
 
+    }
+
+    #[test]
+    fn suffixes_of_nil() {
+        let l: Rc<List<u8>> = List::new();
+        let s = suffixes(&l);
+
+        assert_eq!(s.first(), Some(&l));
+    }
+
+    #[test]
+    fn suffixes_of_one() {
+        let l = List::new().cons(1);
+        let s = suffixes(&l);
+
+        assert_eq!(s.first().unwrap().first(), Some(&1));
+        assert_eq!(**(s.rest().first().unwrap()), List::Nil);
+    }
+
+    #[test]
+    fn suffixes_of_many() {
+        let l = List::new().cons(1).cons(2);
+        let s = suffixes(&l);
+
+        assert_eq!(s.first().unwrap().first(), Some(&2));
+        assert_eq!(s.first().unwrap().rest().first(), Some(&1));
+        assert_eq!(s.rest().first().unwrap().first(), Some(&1));
+        assert_eq!(**(s.rest().rest().first().unwrap()), List::Nil);
     }
 }
