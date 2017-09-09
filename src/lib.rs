@@ -10,6 +10,8 @@ pub trait Sequence<E: Clone> {
     fn rest(&self) -> Self;
 
     fn update(&self, index: u8, val: E) -> Self;
+
+    fn concat(&self, other: &Self) -> Self;
 }
 
 #[derive(Debug, PartialEq)]
@@ -66,6 +68,16 @@ impl<E: Clone> Sequence<E> for Rc<List<E>> {
                         .clone(),
                 )
             }
+        }
+    }
+
+    fn concat(&self, other: &Self) -> Self {
+        if self.is_empty() {
+            other.clone()
+        } else {
+            self.rest().concat(other).cons(
+                self.first().unwrap().clone(),
+            )
         }
     }
 }
@@ -131,5 +143,32 @@ mod tests {
         assert_eq!(new_l.rest().rest().first(), Some(&1));
 
         assert!(Rc::ptr_eq(&l.rest().rest(), &new_l.rest().rest()));
+    }
+
+    #[test]
+    fn concat_joins_two_lists() {
+        let xs = List::new().cons(1).cons(2);
+        let ys = List::new().cons(3).cons(4);
+
+        let zs = ys.concat(&xs);
+
+        assert_eq!(zs.first(), Some(&4));
+        assert_eq!(zs.rest().first(), Some(&3));
+        assert_eq!(zs.rest().rest().first(), Some(&2));
+        assert_eq!(zs.rest().rest().rest().first(), Some(&1));
+    }
+
+    #[test]
+    fn concat_leaves_both_lists_usable() {
+        let xs = List::new().cons(1).cons(2);
+        let ys = List::new().cons(3).cons(4);
+
+        let _zs = ys.concat(&xs);
+        assert_eq!(xs.first(), Some(&2));
+        assert_eq!(xs.rest().first(), Some(&1));
+
+        assert_eq!(ys.first(), Some(&4));
+        assert_eq!(ys.rest().first(), Some(&3));
+
     }
 }
