@@ -40,7 +40,11 @@ impl<E> Sequence<E> for Rc<List<E>> {
     }
 
     fn rest(&self) -> Self::R2 {
-        Rc::new(List::Nil)
+        use List::*;
+        match **self {
+            Nil => self.clone(),
+            Cons(_, ref rest) => rest.clone(),
+        }
     }
 }
 
@@ -67,5 +71,18 @@ mod tests {
         let l2 = l.cons(1);
         assert_eq!(*l, List::Nil);
         assert_eq!(l2.first(), Some(&1));
+    }
+
+    #[test]
+    fn rest_on_nil_is_nil() {
+        let l: Rc<List<u8>> = List::new();
+        assert_eq!(*(l.rest()), List::Nil)
+    }
+
+    #[test]
+    fn rest_on_list_drops_first_item() {
+        let l = List::new().cons(1).cons(2);
+        let rest = l.rest();
+        assert_eq!(rest.first(), Some(&1))
     }
 }
