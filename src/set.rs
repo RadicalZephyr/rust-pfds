@@ -1,3 +1,4 @@
+use std::{cmp, fmt};
 use std::rc::Rc;
 
 pub trait Set<E>
@@ -13,6 +14,78 @@ enum Tree<E> {
     T(Rc<Tree<E>>, E, Rc<Tree<E>>),
 }
 
+#[derive(Clone, Debug)]
+enum Alignment {
+    Left, Right
+}
+
+impl<E> fmt::Display for Tree<E>
+where E: fmt::Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        use self::Alignment::*;
+
+        fn format_value<E>(node: &Tree<E>) -> String
+        where E: fmt::Display {
+           node.value().map(|v| format!("{}", v)).unwrap_or("".to_string())
+        }
+        let aligns = vec![Left, Right];
+        let depth = self.depth();
+        let left_depth = self.left().map(|t| t.depth()).unwrap_or_default();
+        let width = f.width().unwrap_or(3);
+        let widths = iterate(width, |w| 2*w+1)
+            .skip(1)
+            .take(depth-1)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev();
+
+        write!(f, "{: ^width$}", format_value(self), width=width)?;
+        let mut nodes = vec![self.left(), self.right()];
+        for width in widths {
+            let next_nodes = nodes.iter()
+                .flat_map(|n| n.as_ref().map(|n| vec![n.left(), n.right()]).unwrap_or(vec![]))
+                .collect();
+
+            write!(f, "\n ")?;
+            for i in 0..nodes.len() {
+                let edge = if i % 2 == 0 { "/" } else { "\\ " };
+                write!(f, " {: ^width$} ", edge, width=width-2)?;
+            }
+            write!(f, "\n")?;
+            let width = cmp::max((width-1)/2, 3);
+            let next_width = (width-1)/2;
+            for (item, align) in nodes.into_iter().zip(aligns.iter().cycle()) {
+                match align {
+                    Left => {
+                        write!(f, "{:width$}", "", width=width)?;
+                        write!(f, "{: <width$}{:width$}", format_value(self), "", width=width)?;
+                    },
+                    Right => {
+                        write!(f, "{: >width$}", format_value(self), width=width)?;
+                        write!(f, "{:width$}", "", width=width-1)?;
+                    },
+                };
+            }
+            nodes = next_nodes;
+        }
+        let width = 3;
+        write!(f, "\n ")?;
+        for i in 0..nodes.len() {
+            let edge = if i % 2 == 0 { "/" } else { "\\ " };
+            write!(f, " {: ^width$} ", edge, width=width-2)?;
+        }
+        write!(f, "\n")?;
+        for (item, align) in nodes.into_iter().zip(aligns.iter().cycle()) {
+            match align {
+                Left => write!(f, " {: <width$}", format_value(self), width=width)?,
+                Right => write!(f, "{: >width$}", format_value(self), width=width)?,
+            };
+        }
+        Ok(())
+    }
+}
+
 impl<E> Tree<E> {
     pub fn empty() -> Rc<Self> {
         Rc::new(Tree::E)
@@ -24,6 +97,9 @@ impl<E> Tree<E> {
 }
 
 pub trait BinaryTree: Sized {
+    type Item;
+
+    fn value(&self) -> Option<&Self::Item>;
     fn left(&self)  -> Option<Rc<Self>>;
     fn right(&self) -> Option<Rc<Self>>;
     fn count(&self) -> usize;
@@ -31,6 +107,15 @@ pub trait BinaryTree: Sized {
 }
 
 impl<E> BinaryTree for Tree<E> {
+    type Item = E;
+
+    fn value(&self) -> Option<&Self::Item> {
+        match self {
+            Tree::E => None,
+            Tree::T(_, ref value, _) => Some(value),
+        }
+    }
+
     fn left(&self) -> Option<Rc<Self>> {
         match self {
             Tree::E => None,
@@ -305,5 +390,12 @@ mod tests {
         assert_eq!(4, t.depth());
         assert_eq!(3, t.left().unwrap().depth());
         assert_eq!(3, t.right().unwrap().depth());
+    }
+
+    #[test]
+    fn display_it() {
+        let t = tree_of(5, 1);
+        println!("{}", t);
+        assert_eq!(1, 2);
     }
 }
