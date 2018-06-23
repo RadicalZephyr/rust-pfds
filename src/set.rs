@@ -55,12 +55,12 @@ where E: fmt::Display,
                 let item = item.unwrap_or(Tree::empty());
                 match align {
                     Left => {
-                        write!(f, "{:width$}", "", width=width)?;
-                        write!(f, "{: <width$}{:width$}", format_value(item.as_ref()), "", width=width)?;
+                        write!(f, "{:width$}", "", width=(width/2)+1)?;
+                        write!(f, "{: ^width$}{:width$}", format_value(item.as_ref()), "", width=width)?;
                     },
                     Right => {
-                        write!(f, "{: >width$}", format_value(item.as_ref()), width=width)?;
-                        write!(f, "{:width$}", "", width=width-1)?;
+                        write!(f, "{: ^width$}", format_value(item.as_ref()), width=width)?;
+                        //write!(f, "{:width$}", "", width=width-1)?;
                     },
                 };
             }
