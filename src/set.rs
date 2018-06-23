@@ -21,25 +21,39 @@ impl<E> Tree<E> {
 
 struct AlreadyPresent;
 
-impl<E> Set<E> for Rc<Tree<E>>
+struct UnbalancedSet<E>(Rc<Tree<E>>);
+
+impl<E> UnbalancedSet<E> {
+    pub fn empty() -> UnbalancedSet<E> {
+        UnbalancedSet(Tree::empty())
+    }
+}
+
+impl<E> Set<E> for UnbalancedSet<E>
 where E: Clone + PartialOrd
 {
     fn member(&self, x: &E) -> bool {
-        match **self {
-            Tree::E => false,
-            Tree::T(ref left, ref y, ref right) => {
-                if *x < *y {
-                    left.member(x)
-                } else if *x > *y {
-                    right.member(x)
-                } else {
-                    true
-                }
-            },
+        fn iter<E>(t: &Rc<Tree<E>>, x: &E) -> bool
+        where E: Clone + PartialOrd,
+        {
+            match **t {
+                Tree::E => false,
+                Tree::T(ref left, ref y, ref right) => {
+                    if *x < *y {
+                        iter(left, x)
+                    } else if *x > *y {
+                        iter(right, x)
+                    } else {
+                        true
+                    }
+                },
+            }
         }
+
+        iter(&self.0, x)
     }
 
-    fn insert(&self, x: E) -> Rc<Tree<E>> {
+    fn insert(&self, x: E) -> UnbalancedSet<E> {
         fn iter<E>(t: &Rc<Tree<E>>, x: E, candidate: Option<&E>)
                    -> Result<Rc<Tree<E>>, AlreadyPresent>
         where E: Clone + PartialOrd
@@ -69,9 +83,9 @@ where E: Clone + PartialOrd
             }
         }
 
-        match iter(self, x, None) {
-            Ok(new_t) => new_t,
-            Err(AlreadyPresent) => Rc::clone(self),
+        match iter(&self.0, x, None) {
+            Ok(new_t) => UnbalancedSet(new_t),
+            Err(AlreadyPresent) => UnbalancedSet(Rc::clone(&self.0)),
         }
     }
 }
@@ -82,35 +96,35 @@ mod tests {
 
     #[test]
     fn empty() {
-        let t = Tree::<u8>::empty();
+        let t = UnbalancedSet::<u8>::empty();
         assert!(!t.member(&0));
     }
 
     #[test]
     fn insert_one() {
-        let t = Tree::<u8>::empty().insert(1);
+        let t = UnbalancedSet::<u8>::empty().insert(1);
         assert!(t.member(&1));
     }
 
     #[test]
     fn insert_several() {
-        let t = Tree::empty().insert(1).insert(3);
+        let t = UnbalancedSet::empty().insert(1).insert(3);
         assert!(t.member(&1));
         assert!(t.member(&3));
     }
 
     #[test]
     fn insert_many() {
-        let t = Tree::empty().insert(2).insert(1).insert(3);
+        let t = UnbalancedSet::empty().insert(2).insert(1).insert(3);
         assert!(t.member(&1));
         assert!(t.member(&2));
         assert!(t.member(&3));
-        assert_eq!(Rc::strong_count(&t), 1);
+        assert_eq!(Rc::strong_count(&t.0), 1);
 
         let t2 = t.insert(2);
         assert!(t2.member(&1));
         assert!(t2.member(&2));
         assert!(t2.member(&3));
-        assert_eq!(Rc::strong_count(&t), 2);
+        assert_eq!(Rc::strong_count(&t.0), 2);
     }
 }
