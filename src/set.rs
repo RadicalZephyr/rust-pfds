@@ -19,6 +19,8 @@ impl<E> Tree<E> {
     }
 }
 
+struct AlreadyPresent;
+
 impl<E> Set<E> for Rc<Tree<E>>
 where E: Clone + PartialOrd
 {
@@ -38,29 +40,33 @@ where E: Clone + PartialOrd
     }
 
     fn insert(&self, x: E) -> Rc<Tree<E>> {
-        fn iter<E>(t: &Rc<Tree<E>>, x: E, candidate: Option<&E>) -> Rc<Tree<E>>
+        fn iter<E>(t: &Rc<Tree<E>>, x: E, candidate: Option<&E>)
+                   -> Result<Rc<Tree<E>>, AlreadyPresent>
         where E: Clone + PartialOrd
         {
             match **t {
                 Tree::E => {
                     match candidate {
-                        Some(c) if *c == x => Rc::clone(t),
+                        Some(c) if *c == x => Err(AlreadyPresent),
                         Some(_) | None => {
-                            Rc::new(Tree::T(Tree::empty(), x, Tree::empty()))
+                            Ok(Rc::new(Tree::T(Tree::empty(), x, Tree::empty())))
                         }
                     }
                 },
                 Tree::T(ref left, ref y, ref right) => {
                     if x < *y {
-                        Rc::new(Tree::T(iter(left, x, candidate), y.clone(), Rc::clone(right)))
+                        Ok(Rc::new(Tree::T(iter(left, x, candidate)?, y.clone(), Rc::clone(right))))
                     } else {
-                        Rc::new(Tree::T(Rc::clone(left), y.clone(), iter(right, x, Some(y))))
+                        Ok(Rc::new(Tree::T(Rc::clone(left), y.clone(), iter(right, x, Some(y))?)))
                     }
                 },
             }
         }
 
-        iter(self, x, None)
+        match iter(self, x, None) {
+            Ok(new_t) => new_t,
+            Err(AlreadyPresent) => Rc::clone(self),
+        }
     }
 }
 
