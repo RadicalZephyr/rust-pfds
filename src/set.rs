@@ -18,10 +18,50 @@ impl<E> Tree<E> {
         Rc::new(Tree::E)
     }
 
-    pub fn count(&self) -> usize {
-        match self {
+    pub fn leaf(x: E) -> Rc<Self> {
+        Rc::new(Tree::T(Tree::empty(), x, Tree::empty()))
+    }
+}
+
+pub trait BinaryTree: Sized {
+    fn left(&self)  -> Option<Self>;
+    fn right(&self) -> Option<Self>;
+    fn count(&self) -> usize;
+    fn depth(&self) -> usize;
+}
+
+impl<E> BinaryTree for Rc<Tree<E>> {
+    fn left(&self) -> Option<Self> {
+        match **self {
+            Tree::E => None,
+            Tree::T(ref left, _, _) => Some(Rc::clone(left)),
+        }
+    }
+
+    fn right(&self) -> Option<Self> {
+        match **self {
+            Tree::E => None,
+            Tree::T(_, _, ref right) => Some(Rc::clone(right)),
+        }
+    }
+
+    fn count(&self) -> usize {
+        match **self {
             Tree::E => 0,
-            Tree::T(left, _, right) => 1 + left.count() + right.count(),
+            Tree::T(ref left, _, ref right) => 1 + left.count() + right.count(),
+        }
+    }
+
+    fn depth(&self) -> usize {
+        match **self {
+            Tree::E => 0,
+            Tree::T(ref left, _, ref right) => {
+                vec![left.depth(), right.depth()]
+                    .iter()
+                    .max()
+                    .unwrap()
+                    .clone() + 1
+            },
         }
     }
 }
