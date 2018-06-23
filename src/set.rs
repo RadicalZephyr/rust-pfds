@@ -49,15 +49,21 @@ where E: Clone + PartialOrd
                     match candidate {
                         Some(c) if *c == x => Err(AlreadyPresent),
                         Some(_) | None => {
-                            Ok(Rc::new(UnbalancedSet::T(UnbalancedSet::empty(), x, UnbalancedSet::empty())))
+                            Ok(Rc::new(UnbalancedSet::T(UnbalancedSet::empty(),
+                                                        x,
+                                                        UnbalancedSet::empty())))
                         }
                     }
                 },
                 UnbalancedSet::T(ref left, ref y, ref right) => {
                     if x < *y {
-                        Ok(Rc::new(UnbalancedSet::T(iter(left, x, candidate)?, y.clone(), Rc::clone(right))))
+                        Ok(Rc::new(UnbalancedSet::T(iter(left, x, candidate)?,
+                                                    y.clone(),
+                                                    Rc::clone(right))))
                     } else {
-                        Ok(Rc::new(UnbalancedSet::T(Rc::clone(left), y.clone(), iter(right, x, Some(y))?)))
+                        Ok(Rc::new(UnbalancedSet::T(Rc::clone(left),
+                                                    y.clone(),
+                                                    iter(right, x, Some(y))?)))
                     }
                 },
             }
