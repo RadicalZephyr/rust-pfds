@@ -86,4 +86,19 @@ mod tests {
         assert!(t.member(&1));
         assert!(t.member(&3));
     }
+
+    #[test]
+    fn insert_many() {
+        let t = Tree::empty().insert(2).insert(1).insert(3);
+        assert!(t.member(&1));
+        assert!(t.member(&2));
+        assert!(t.member(&3));
+        assert_eq!(Rc::strong_count(&t), 1);
+
+        let t2 = t.insert(2);
+        assert!(t2.member(&1));
+        assert!(t2.member(&2));
+        assert!(t2.member(&3));
+        assert_eq!(Rc::strong_count(&t), 2);
+    }
 }
