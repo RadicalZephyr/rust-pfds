@@ -24,36 +24,36 @@ impl<E> Tree<E> {
 }
 
 pub trait BinaryTree: Sized {
-    fn left(&self)  -> Option<Self>;
-    fn right(&self) -> Option<Self>;
+    fn left(&self)  -> Option<Rc<Self>>;
+    fn right(&self) -> Option<Rc<Self>>;
     fn count(&self) -> usize;
     fn depth(&self) -> usize;
 }
 
-impl<E> BinaryTree for Rc<Tree<E>> {
-    fn left(&self) -> Option<Self> {
-        match **self {
+impl<E> BinaryTree for Tree<E> {
+    fn left(&self) -> Option<Rc<Self>> {
+        match self {
             Tree::E => None,
             Tree::T(ref left, _, _) => Some(Rc::clone(left)),
         }
     }
 
-    fn right(&self) -> Option<Self> {
-        match **self {
+    fn right(&self) -> Option<Rc<Self>> {
+        match self {
             Tree::E => None,
             Tree::T(_, _, ref right) => Some(Rc::clone(right)),
         }
     }
 
     fn count(&self) -> usize {
-        match **self {
+        match self {
             Tree::E => 0,
             Tree::T(ref left, _, ref right) => 1 + left.count() + right.count(),
         }
     }
 
     fn depth(&self) -> usize {
-        match **self {
+        match self {
             Tree::E => 0,
             Tree::T(ref left, _, ref right) => {
                 vec![left.depth(), right.depth()]
