@@ -27,22 +27,19 @@ where E: fmt::Display,
 
         fn format_value<E>(node: &Tree<E>) -> String
         where E: fmt::Display {
-           node.value().map(|v| format!("{}", v)).unwrap_or("".to_string())
+           node.value().map(|v| format!("{}", v)).unwrap_or("( )".to_string())
         }
         let aligns = vec![Left, Right];
         let depth = self.depth();
-        let left_depth = self.left().map(|t| t.depth()).unwrap_or_default();
         let width = f.width().unwrap_or(3);
-        let widths = iterate(width, |w| 2*w+1)
+        let widths = iterate(width, |w| (2*w)+1)
             .skip(1)
             .take(depth-1)
-            .collect::<Vec<_>>()
-            .into_iter()
-            .rev();
-
-        write!(f, "{: ^width$}", format_value(self), width=width)?;
+            .collect::<Vec<_>>();
+        let width = widths.first().unwrap().clone()+1;
+        write!(f, "{:width$}{: ^width$}", "", format_value(self), width=width)?;
         let mut nodes = vec![self.left(), self.right()];
-        for width in widths {
+        for width in widths.into_iter().rev() {
             let next_nodes = nodes.iter()
                 .flat_map(|n| n.as_ref().map(|n| vec![n.left(), n.right()]).unwrap_or(vec![]))
                 .collect();
@@ -54,33 +51,20 @@ where E: fmt::Display,
             }
             write!(f, "\n")?;
             let width = cmp::max((width-1)/2, 3);
-            let next_width = (width-1)/2;
             for (item, align) in nodes.into_iter().zip(aligns.iter().cycle()) {
+                let item = item.unwrap_or(Tree::empty());
                 match align {
                     Left => {
                         write!(f, "{:width$}", "", width=width)?;
-                        write!(f, "{: <width$}{:width$}", format_value(self), "", width=width)?;
+                        write!(f, "{: <width$}{:width$}", format_value(item.as_ref()), "", width=width)?;
                     },
                     Right => {
-                        write!(f, "{: >width$}", format_value(self), width=width)?;
+                        write!(f, "{: >width$}", format_value(item.as_ref()), width=width)?;
                         write!(f, "{:width$}", "", width=width-1)?;
                     },
                 };
             }
             nodes = next_nodes;
-        }
-        let width = 3;
-        write!(f, "\n ")?;
-        for i in 0..nodes.len() {
-            let edge = if i % 2 == 0 { "/" } else { "\\ " };
-            write!(f, " {: ^width$} ", edge, width=width-2)?;
-        }
-        write!(f, "\n")?;
-        for (item, align) in nodes.into_iter().zip(aligns.iter().cycle()) {
-            match align {
-                Left => write!(f, " {: <width$}", format_value(self), width=width)?,
-                Right => write!(f, "{: >width$}", format_value(self), width=width)?,
-            };
         }
         Ok(())
     }
