@@ -36,7 +36,7 @@ impl<E: Clone> Sequence<E> for Rc<List<E>> {
     }
 
     fn cons(&self, el: E) -> Self {
-        Rc::new(List::Cons(el, self.clone()))
+        Rc::new(List::Cons(el, Rc::clone(self)))
     }
 
     fn first(&self) -> Option<&E> {
@@ -51,7 +51,7 @@ impl<E: Clone> Sequence<E> for Rc<List<E>> {
         use List::*;
         match **self {
             Nil => self.clone(),
-            Cons(_, ref rest) => rest.clone(),
+            Cons(_, ref rest) => Rc::clone(rest),
         }
     }
 
@@ -85,9 +85,9 @@ impl<E: Clone> Sequence<E> for Rc<List<E>> {
 
 fn suffixes<E: Clone>(list: &Rc<List<E>>) -> Rc<List<Rc<List<E>>>> {
     if list.is_empty() {
-        List::new().cons(list.clone())
+        List::new().cons(Rc::clone(list))
     } else {
-        suffixes(&list.rest()).cons(list.clone())
+        suffixes(&list.rest()).cons(Rc::clone(list))
     }
 }
 
