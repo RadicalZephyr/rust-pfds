@@ -17,6 +17,13 @@ impl<E> Tree<E> {
     pub fn empty() -> Rc<Self> {
         Rc::new(Tree::E)
     }
+
+    pub fn count(&self) -> usize {
+        match self {
+            Tree::E => 0,
+            Tree::T(left, _, right) => 1 + left.count() + right.count(),
+        }
+    }
 }
 
 struct AlreadyPresent;
@@ -113,6 +120,17 @@ where F: Fn(&I) -> I,
     Iterate { current: init, f}
 }
 
+fn complete<E>(depth: usize, value: E) -> Rc<Tree<E>>
+where E: Clone,
+{
+    let empty = Tree::empty();
+    iterate(Rc::new(Tree::T(Rc::clone(&empty), value.clone(), empty)),
+            |subtree| {
+                Rc::new(Tree::T(Rc::clone(subtree), value.clone(), Rc::clone(subtree)))
+            })
+        .skip(depth-1).next().unwrap()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -161,5 +179,23 @@ mod tests {
     fn iterate_powers_of_two() {
         let mut res = iterate(1, |x| x * 2);
         assert_eq!(vec![1, 2, 4, 8], res.take(4).collect::<Vec<u8>>());
+    }
+
+    #[test]
+    fn complete_one() {
+        let t = complete(1, ());
+        assert_eq!(1, t.count());
+    }
+
+    #[test]
+    fn complete_two() {
+        let t = complete(2, ());
+        assert_eq!(3, t.count());
+    }
+
+    #[test]
+    fn complete_three() {
+        let t = complete(3, ());
+        assert_eq!(7, t.count());
     }
 }
