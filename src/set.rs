@@ -38,18 +38,29 @@ where E: Clone + PartialOrd
     }
 
     fn insert(&self, x: E) -> Rc<Tree<E>> {
-        match **self {
-            Tree::E => Rc::new(Tree::T(Tree::empty(), x, Tree::empty())),
-            Tree::T(ref left, ref y, ref right) => {
-                if x < *y {
-                    Rc::new(Tree::T(left.insert(x), y.clone(), Rc::clone(right)))
-                } else if x > *y {
-                    Rc::new(Tree::T(Rc::clone(left), y.clone(), right.insert(x)))
-                } else {
-                    Rc::clone(self)
-                }
-            },
+        fn iter<E>(t: &Rc<Tree<E>>, x: E, candidate: Option<&E>) -> Rc<Tree<E>>
+        where E: Clone + PartialOrd
+        {
+            match **t {
+                Tree::E => {
+                    match candidate {
+                        Some(c) if *c == x => Rc::clone(t),
+                        Some(_) | None => {
+                            Rc::new(Tree::T(Tree::empty(), x, Tree::empty()))
+                        }
+                    }
+                },
+                Tree::T(ref left, ref y, ref right) => {
+                    if x < *y {
+                        Rc::new(Tree::T(iter(left, x, candidate), y.clone(), Rc::clone(right)))
+                    } else {
+                        Rc::new(Tree::T(Rc::clone(left), y.clone(), iter(right, x, Some(y))))
+                    }
+                },
+            }
         }
+
+        iter(self, x, None)
     }
 }
 
