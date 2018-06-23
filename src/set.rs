@@ -171,6 +171,38 @@ where E: Clone,
         .skip(depth-1).next().unwrap()
 }
 
+fn tree_of<E>(size: usize, value: E) -> Rc<Tree<E>>
+where E: Clone
+{
+    fn create2<E>(m: usize, value: E) -> (Rc<Tree<E>>, Rc<Tree<E>>)
+    where E: Clone
+    {
+        if m == 0 {
+            (Tree::leaf(value), Tree::empty())
+        } else {
+            (tree_of(m+1, value.clone()), tree_of(m, value))
+        }
+    }
+
+    match size {
+        0 => Tree::empty(),
+        1 => Tree::leaf(value),
+        size if size % 2 == 0 => {
+            let subtree_size = ((size - 1) as f64 / 2.0).floor() as usize;
+            let (larger, smaller) = create2(subtree_size, value.clone());
+            Rc::new(Tree::T(larger, value, smaller))
+        },
+        size if size % 2 == 1 => {
+            let subtree_size = ((size - 1) as f64 / 2.0).floor() as usize;
+            let subtree = tree_of(subtree_size, value.clone());
+            Rc::new(Tree::T(Rc::clone(&subtree),
+                            value,
+                            Rc::clone(&subtree)))
+        },
+        _ => unreachable!("all numbers are odd or even"),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -237,5 +269,41 @@ mod tests {
     fn complete_three() {
         let t = complete(3, ());
         assert_eq!(7, t.count());
+    }
+
+    #[test]
+    fn tree_of_one() {
+        let t = tree_of(1, ());
+        println!("{:?}", t);
+        assert_eq!(1, t.count());
+        assert_eq!(1, t.depth());
+    }
+
+    #[test]
+    fn tree_of_two() {
+        let t = tree_of(2, ());
+        println!("{:?}", t);
+        assert_eq!(2, t.count());
+        assert_eq!(2, t.depth());
+    }
+
+    #[test]
+    fn tree_of_four() {
+        let t = tree_of(4, ());
+        println!("{:?}", t);
+        assert_eq!(4, t.count());
+        assert_eq!(3, t.depth());
+        assert_eq!(2, t.left().unwrap().depth());
+        assert_eq!(1, t.right().unwrap().depth());
+    }
+
+    #[test]
+    fn tree_of_ten() {
+        let t = tree_of(10, ());
+        println!("{:?}", t);
+        assert_eq!(10, t.count());
+        assert_eq!(4, t.depth());
+        assert_eq!(3, t.left().unwrap().depth());
+        assert_eq!(3, t.right().unwrap().depth());
     }
 }
