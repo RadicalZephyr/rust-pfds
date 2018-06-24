@@ -1,14 +1,6 @@
 use std::{cmp, fmt};
 use std::rc::Rc;
 
-pub trait Set<E>
-where E: Clone + PartialOrd
-{
-    fn empty() -> Self;
-    fn member(&self, val: &E) -> bool;
-    fn insert(&self, val: E) -> Self;
-}
-
 #[derive(Debug, PartialEq)]
 enum Tree<E> {
     E,
@@ -140,76 +132,39 @@ impl<E> BinaryTree for Tree<E> {
     }
 }
 
-struct AlreadyPresent;
+pub struct AlreadyPresent;
 
-struct UnbalancedSet<T>(Rc<Tree<T>>);
-
-impl<E> Set<E> for UnbalancedSet<E>
+pub trait Set<E>
 where E: Clone + PartialOrd
 {
-    fn empty() -> UnbalancedSet<E> {
-        UnbalancedSet(Tree::empty())
+    fn empty() -> Self;
+    fn member(&self, val: &E) -> bool;
+    fn insert(&self, val: E) -> Self;
+}
+
+#[derive(Clone, Debug)]
+struct UnbalancedSet<T>(UnbalancedMap<Rc<T>>);
+
+impl<T> Set<T> for UnbalancedSet<T>
+where T: Clone + PartialOrd
+{
+    fn empty() -> UnbalancedSet<T> {
+        UnbalancedSet(UnbalancedMap::empty())
     }
 
-    fn member(&self, x: &E) -> bool {
-        fn iter<E>(t: &Rc<Tree<E>>, x: &E) -> bool
-        where E: Clone + PartialOrd,
-        {
-            match **t {
-                Tree::E => false,
-                Tree::T(ref left, ref y, ref right) => {
-                    if *x < *y {
-                        iter(left, x)
-                    } else if *x > *y {
-                        iter(right, x)
-                    } else {
-                        true
-                    }
-                },
-            }
-        }
-
-        iter(&self.0, x)
+    fn member(&self, x: &T) -> bool {
+        self.0.lookup(x).is_some()
     }
 
-    fn insert(&self, x: E) -> UnbalancedSet<E> {
-        fn iter<E>(t: &Rc<Tree<E>>, x: E, candidate: Option<&E>)
-                   -> Result<Rc<Tree<E>>, AlreadyPresent>
-        where E: Clone + PartialOrd
-        {
-            match **t {
-                Tree::E => {
-                    match candidate {
-                        Some(c) if *c == x => Err(AlreadyPresent),
-                        Some(_) | None => {
-                            Ok(Rc::new(Tree::T(Tree::empty(),
-                                               x,
-                                               Tree::empty())))
-                        }
-                    }
-                },
-                Tree::T(ref left, ref y, ref right) => {
-                    if x < *y {
-                        Ok(Rc::new(Tree::T(iter(left, x, candidate)?,
-                                           y.clone(),
-                                           Rc::clone(right))))
-                    } else {
-                        Ok(Rc::new(Tree::T(Rc::clone(left),
-                                           y.clone(),
-                                           iter(right, x, Some(y))?)))
-                    }
-                },
-            }
-        }
-
-        match iter(&self.0, x, None) {
-            Ok(new_t) => UnbalancedSet(new_t),
-            Err(AlreadyPresent) => UnbalancedSet(Rc::clone(&self.0)),
+    fn insert(&self, val: T) -> UnbalancedSet<T> {
+        match self.0.insert(Rc::new(val)) {
+            Ok(m) => UnbalancedSet(m),
+            Err(AlreadyPresent) => self.clone(),
         }
     }
 }
 
-trait MapEntry: Clone {
+pub trait MapEntry: Clone {
     type Key: PartialOrd;
     type Value;
 
@@ -257,20 +212,24 @@ where K: Clone + PartialOrd,
     }
 }
 
-pub trait FiniteMap {
+pub trait FiniteMap: Sized {
+    type Entry: MapEntry;
     type Key;
     type Value;
 
     fn empty() -> Self;
+    fn insert(&self, e: Self::Entry) -> Result<Self, AlreadyPresent>;
     fn bind(&self, k: Self::Key, v: Self::Value) -> Self;
     fn lookup(&self, k: &Self::Key) -> Option<&Self::Value>;
 }
 
+#[derive(Clone, Debug)]
 struct UnbalancedMap<T>(Rc<Tree<T>>);
 
 impl<T> FiniteMap for UnbalancedMap<T>
 where T: MapEntry,
 {
+    type Entry = T;
     type Key = T::Key;
     type Value = T::Value;
 
@@ -278,7 +237,7 @@ where T: MapEntry,
         UnbalancedMap(Tree::empty())
     }
 
-    fn bind(&self, k: Self::Key, v: Self::Value) -> Self {
+    fn insert(&self, e: Self::Entry) -> Result<Self, AlreadyPresent> {
         fn iter<T>(t: &Rc<Tree<T>>, x: T, candidate: Option<&T>)
                       -> Result<Rc<Tree<T>>, AlreadyPresent>
         where T: MapEntry,
@@ -300,15 +259,19 @@ where T: MapEntry,
                     } else {
                         Ok(Tree::node(Rc::clone(left),
                                       (*y).clone(),
-                                      iter(right, x, candidate)?))
+                                      iter(right, x, Some(y))?))
                     }
                 }
             }
         }
 
-        match iter(&self.0, T::new(k, v), None) {
-            Ok(t) => UnbalancedMap(t),
-            Err(AlreadyPresent) => UnbalancedMap(Rc::clone(&self.0))
+        iter(&self.0, e, None).map(|t| UnbalancedMap(t))
+    }
+
+    fn bind(&self, k: Self::Key, v: Self::Value) -> Self {
+        match self.insert(T::new(k, v)) {
+            Ok(m) => m,
+            Err(AlreadyPresent) => self.clone(),
         }
     }
 
@@ -429,13 +392,13 @@ mod tests {
         assert!(t.member(&1));
         assert!(t.member(&2));
         assert!(t.member(&3));
-        assert_eq!(Rc::strong_count(&t.0), 1);
+        assert_eq!(1, Rc::strong_count(&(t.0).0));
 
         let t2 = t.insert(2);
         assert!(t2.member(&1));
         assert!(t2.member(&2));
         assert!(t2.member(&3));
-        assert_eq!(Rc::strong_count(&t.0), 2);
+        assert_eq!(2, Rc::strong_count(&(t.0).0));
     }
 
     #[test]
