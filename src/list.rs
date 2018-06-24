@@ -1,6 +1,9 @@
 use std::rc::Rc;
 
-pub trait Sequence<E: Clone> {
+#[derive(Debug)]
+pub struct IndexOutOfRange;
+
+pub trait Sequence<E: Clone>: Sized {
     fn is_empty(&self) -> bool;
 
     fn cons(&self, el: E) -> Self;
@@ -9,7 +12,7 @@ pub trait Sequence<E: Clone> {
 
     fn rest(&self) -> Self;
 
-    fn update(&self, index: u8, val: E) -> Self;
+    fn update(&self, index: usize, val: E) -> Result<Self, IndexOutOfRange>;
 
     fn concat(&self, other: &Self) -> Self;
 }
@@ -28,10 +31,9 @@ impl<E> List<E> {
 
 impl<E: Clone> Sequence<E> for Rc<List<E>> {
     fn is_empty(&self) -> bool {
-        use self::List::*;
         match **self {
-            Nil => true,
-            Cons(_, _) => false,
+            List::Nil => true,
+            List::Cons(_, _) => false,
         }
     }
 
@@ -40,44 +42,38 @@ impl<E: Clone> Sequence<E> for Rc<List<E>> {
     }
 
     fn first(&self) -> Option<&E> {
-        use self::List::*;
         match **self {
-            Nil => None,
-            Cons(ref el, _) => Some(el),
+            List::Nil => None,
+            List::Cons(ref el, _) => Some(el),
         }
     }
 
     fn rest(&self) -> Self {
-        use self::List::*;
         match **self {
-            Nil => self.clone(),
-            Cons(_, ref rest) => Rc::clone(rest),
+            List::Nil => Rc::clone(self),
+            List::Cons(_, ref rest) => Rc::clone(rest),
         }
     }
 
-    fn update(&self, index: u8, val: E) -> Self {
+    fn update(&self, index: usize, val: E) -> Result<Self, IndexOutOfRange> {
         if index == 0 {
-            self.rest().cons(val)
+            Ok(self.rest().cons(val))
         } else {
-            if self.is_empty() {
-                panic!("ahhhhhh!")
-            } else {
-                self.rest().update(index - 1, val).cons(
-                    self.first()
-                        .unwrap()
-                        .clone(),
-                )
+            match **self {
+                List::Nil => Err(IndexOutOfRange),
+                List::Cons(ref head, ref rest) => {
+                    Ok(rest.update(index - 1, val)?.cons(head.clone()))
+                }
             }
         }
     }
 
     fn concat(&self, other: &Self) -> Self {
-        if self.is_empty() {
-            other.clone()
-        } else {
-            self.rest().concat(other).cons(
-                self.first().unwrap().clone(),
-            )
+        match **self {
+            List::Nil => Rc::clone(other),
+            List::Cons(ref head, ref rest) => {
+                rest.concat(other).cons(head.clone())
+            }
         }
     }
 }
@@ -135,7 +131,7 @@ mod tests {
         assert_eq!(l.first(), Some(&2));
         assert_eq!(l.rest().first(), Some(&1));
 
-        let new_l = l.update(0, 4);
+        let new_l = l.update(0, 4).unwrap();
         assert_eq!(new_l.first(), Some(&4));
         assert_eq!(new_l.rest().first(), Some(&1));
 
@@ -146,7 +142,7 @@ mod tests {
     fn update_copies_all_dependent_nodes() {
         let l = List::new().cons(1).cons(2).cons(3);
 
-        let new_l = l.update(1, 4);
+        let new_l = l.update(1, 4).unwrap();
         assert_eq!(new_l.first(), Some(&3));
         assert_eq!(new_l.rest().first(), Some(&4));
         assert_eq!(new_l.rest().rest().first(), Some(&1));
