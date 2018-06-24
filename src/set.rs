@@ -4,6 +4,7 @@ use std::rc::Rc;
 pub trait Set<E>
 where E: Clone + PartialOrd
 {
+    fn empty() -> Self;
     fn member(&self, val: &E) -> bool;
     fn insert(&self, val: E) -> Self;
 }
@@ -141,17 +142,15 @@ impl<E> BinaryTree for Tree<E> {
 
 struct AlreadyPresent;
 
-struct UnbalancedSet<E>(Rc<Tree<E>>);
-
-impl<E> UnbalancedSet<E> {
-    pub fn empty() -> UnbalancedSet<E> {
-        UnbalancedSet(Tree::empty())
-    }
-}
+struct UnbalancedSet<T>(Rc<Tree<T>>);
 
 impl<E> Set<E> for UnbalancedSet<E>
 where E: Clone + PartialOrd
 {
+    fn empty() -> UnbalancedSet<E> {
+        UnbalancedSet(Tree::empty())
+    }
+
     fn member(&self, x: &E) -> bool {
         fn iter<E>(t: &Rc<Tree<E>>, x: &E) -> bool
         where E: Clone + PartialOrd,
