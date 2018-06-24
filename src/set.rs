@@ -72,8 +72,8 @@ impl<E> Tree<E> {
         Rc::new(Tree::T(Tree::empty(), x, Tree::empty()))
     }
 
-    pub fn node(left: Rc<Self>, x: E, right: Rc<Self>) -> Rc<Self> {
-        Rc::new(Tree::T(left, x, right))
+    pub fn node(left: &Rc<Self>, x: E, right: &Rc<Self>) -> Rc<Self> {
+        Rc::new(Tree::T(Rc::clone(left), x, Rc::clone(right)))
     }
 }
 
@@ -253,13 +253,13 @@ where T: MapEntry,
                 },
                 Tree::T(ref left, ref y, ref right) => {
                     if x.key() < y.key() {
-                        Ok(Tree::node(iter(left, x, candidate)?,
+                        Ok(Tree::node(&iter(left, x, candidate)?,
                                       (*y).clone(),
-                                      Rc::clone(right)))
+                                      right))
                     } else {
-                        Ok(Tree::node(Rc::clone(left),
+                        Ok(Tree::node(left,
                                       (*y).clone(),
-                                      iter(right, x, Some(y))?))
+                                      &iter(right, x, Some(y))?))
                     }
                 }
             }
@@ -323,10 +323,9 @@ where F: Fn(&I) -> I,
 fn complete<E>(depth: usize, value: E) -> Rc<Tree<E>>
 where E: Clone,
 {
-    let empty = Tree::empty();
-    iterate(Rc::new(Tree::T(Rc::clone(&empty), value.clone(), empty)),
+    iterate(Tree::leaf(value.clone()),
             |subtree| {
-                Rc::new(Tree::T(Rc::clone(subtree), value.clone(), Rc::clone(subtree)))
+                Tree::node(&subtree, value.clone(), &subtree)
             })
         .skip(depth-1).next().unwrap()
 }
@@ -350,14 +349,12 @@ where E: Clone
         size if size % 2 == 0 => {
             let subtree_size = ((size - 1) as f64 / 2.0).floor() as usize;
             let (larger, smaller) = create2(subtree_size, value.clone());
-            Rc::new(Tree::T(larger, value, smaller))
+            Tree::node(&larger, value, &smaller)
         },
         size if size % 2 == 1 => {
             let subtree_size = ((size - 1) as f64 / 2.0).floor() as usize;
             let subtree = tree_of(subtree_size, value.clone());
-            Rc::new(Tree::T(Rc::clone(&subtree),
-                            value,
-                            Rc::clone(&subtree)))
+            Tree::node(&subtree, value, &subtree)
         },
         _ => unreachable!("all numbers are odd or even"),
     }
