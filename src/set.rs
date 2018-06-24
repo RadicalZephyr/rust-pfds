@@ -78,6 +78,10 @@ impl<E> Tree<E> {
     pub fn leaf(x: E) -> Rc<Self> {
         Rc::new(Tree::T(Tree::empty(), x, Tree::empty()))
     }
+
+    pub fn node(left: Rc<Self>, x: E, right: Rc<Self>) -> Rc<Self> {
+        Rc::new(Tree::T(left, x, right))
+    }
 }
 
 pub trait BinaryTree: Sized {
