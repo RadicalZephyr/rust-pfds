@@ -210,6 +210,54 @@ where E: Clone + PartialOrd
     }
 }
 
+trait MapEntry: Clone {
+    type Key: PartialOrd;
+    type Value;
+
+    fn new(k: Self::Key, v: Self::Value) -> Self;
+    fn key(&self) -> &Self::Key;
+    fn value(&self) -> &Self::Value;
+}
+
+impl<T> MapEntry for Rc<T>
+where T: PartialOrd
+{
+    type Key = T;
+    type Value = T;
+
+    fn new(k: Self::Key, _v: Self::Value) -> Self {
+        Rc::new(k)
+    }
+
+    fn key(&self) -> &Self::Key {
+        self.as_ref()
+    }
+
+    fn value(&self) -> &Self::Value {
+        self.as_ref()
+    }
+}
+
+impl<K, V> MapEntry for (K, V)
+where K: Clone + PartialOrd,
+      V: Clone,
+{
+    type Key = K;
+    type Value = V;
+
+    fn new(k: Self::Key, v: Self::Value) -> Self {
+        (k, v)
+    }
+
+    fn key(&self) -> &Self::Key {
+        &(*self).0
+    }
+
+    fn value(&self) -> &Self::Value {
+        &(*self).1
+    }
+}
+
 pub trait FiniteMap {
     type Key;
     type Value;
@@ -219,68 +267,65 @@ pub trait FiniteMap {
     fn lookup(&self, k: &Self::Key) -> Option<&Self::Value>;
 }
 
-struct UnbalancedMap<K, V>(Rc<Tree<(K, V)>>);
+struct UnbalancedMap<T>(Rc<Tree<T>>);
 
-impl<K, V> FiniteMap for UnbalancedMap<K, V>
-where K: Clone + PartialOrd,
-      V: Clone,
+impl<T> FiniteMap for UnbalancedMap<T>
+where T: MapEntry,
 {
-    type Key = K;
-    type Value = V;
+    type Key = T::Key;
+    type Value = T::Value;
 
-    fn empty() -> UnbalancedMap<K, V> {
+    fn empty() -> UnbalancedMap<T> {
         UnbalancedMap(Tree::empty())
     }
 
     fn bind(&self, k: Self::Key, v: Self::Value) -> Self {
-        fn iter<K, V>(t: &Rc<Tree<(K, V)>>, x: K, v: V, candidate: Option<&K>)
-                      -> Result<Rc<Tree<(K, V)>>, AlreadyPresent>
-        where K: Clone + PartialOrd,
-              V: Clone,
+        fn iter<T>(t: &Rc<Tree<T>>, x: T, candidate: Option<&T>)
+                      -> Result<Rc<Tree<T>>, AlreadyPresent>
+        where T: MapEntry,
         {
             match **t {
                 Tree::E => {
                     match candidate {
-                        Some(c) if *c == x => Err(AlreadyPresent),
+                        Some(c) if c.key() == x.key() => Err(AlreadyPresent),
                         Some(_) | None => {
-                            Ok(Tree::leaf((x, v)))
+                            Ok(Tree::leaf(x))
                         }
                     }
                 },
                 Tree::T(ref left, ref y, ref right) => {
-                    if x < (*y).0 {
-                        Ok(Tree::node(iter(left, x, v, candidate)?,
+                    if x.key() < y.key() {
+                        Ok(Tree::node(iter(left, x, candidate)?,
                                       (*y).clone(),
                                       Rc::clone(right)))
                     } else {
                         Ok(Tree::node(Rc::clone(left),
                                       (*y).clone(),
-                                      iter(right, x, v, candidate)?))
-
+                                      iter(right, x, candidate)?))
                     }
                 }
             }
         }
 
-        match iter(&self.0, k, v, None) {
+        match iter(&self.0, T::new(k, v), None) {
             Ok(t) => UnbalancedMap(t),
             Err(AlreadyPresent) => UnbalancedMap(Rc::clone(&self.0))
         }
     }
 
     fn lookup(&self, k: &Self::Key) -> Option<&Self::Value> {
-        fn iter<'a, K, V>(t: &'a Rc<Tree<(K, V)>>, x: &K) -> Option<&'a V>
-        where K: PartialOrd,
+        fn iter<'a, T>(t: &'a Rc<Tree<T>>, x: &T::Key) -> Option<&'a T::Value>
+        where T: MapEntry,
         {
             match **t {
                 Tree::E => None,
                 Tree::T(ref left, ref y, ref right) => {
-                    if *x < (*y).0 {
+                    if x < y.key() {
                         iter(left, x)
-                    } else if *x > (*y).0 {
+                    } else if x > y.key() {
                         iter(right, x)
                     } else {
-                        Some(&(*y).1)
+                        Some(y.value())
                     }
                 }
             }
@@ -469,13 +514,13 @@ mod tests {
 
     #[test]
     fn map_of_one() {
-        let m = UnbalancedMap::empty().bind("zero", 0u8);
+        let m = UnbalancedMap::<(&str, u8)>::empty().bind("zero", 0u8);
         assert_eq!(Some(&0), m.lookup(&"zero"));
     }
 
     #[test]
     fn map_of_two() {
-        let m = UnbalancedMap::empty()
+        let m = UnbalancedMap::<(&str, u8)>::empty()
             .bind("zero", 0u8)
             .bind("one", 1u8);
         assert_eq!(Some(&0), m.lookup(&"zero"));
@@ -484,7 +529,7 @@ mod tests {
 
     #[test]
     fn map_double_bind() {
-        let m = UnbalancedMap::empty()
+        let m = UnbalancedMap::<(&str, u8)>::empty()
             .bind("zero", 0u8)
             .bind("one", 1u8);
         let m1 = m.bind("one", 15);
