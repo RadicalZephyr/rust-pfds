@@ -210,6 +210,86 @@ where E: Clone + PartialOrd
     }
 }
 
+pub trait FiniteMap {
+    type Key;
+    type Value;
+
+    fn empty() -> Self;
+    fn bind(&self, k: Self::Key, v: Self::Value) -> Self;
+    fn lookup(&self, k: &Self::Key) -> Option<&Self::Value>;
+}
+
+struct UnbalancedMap<K, V>(Rc<Tree<(K, V)>>);
+
+impl<K, V> FiniteMap for UnbalancedMap<K, V>
+where K: Clone + PartialOrd,
+      V: Clone,
+{
+    type Key = K;
+    type Value = V;
+
+    fn empty() -> UnbalancedMap<K, V> {
+        UnbalancedMap(Tree::empty())
+    }
+
+    fn bind(&self, k: Self::Key, v: Self::Value) -> Self {
+        fn iter<K, V>(t: &Rc<Tree<(K, V)>>, x: K, v: V, candidate: Option<&K>)
+                      -> Result<Rc<Tree<(K, V)>>, AlreadyPresent>
+        where K: Clone + PartialOrd,
+              V: Clone,
+        {
+            match **t {
+                Tree::E => {
+                    match candidate {
+                        Some(c) if *c == x => Err(AlreadyPresent),
+                        Some(_) | None => {
+                            Ok(Tree::leaf((x, v)))
+                        }
+                    }
+                },
+                Tree::T(ref left, ref y, ref right) => {
+                    if x < (*y).0 {
+                        Ok(Tree::node(iter(left, x, v, candidate)?,
+                                      (*y).clone(),
+                                      Rc::clone(right)))
+                    } else {
+                        Ok(Tree::node(Rc::clone(left),
+                                      (*y).clone(),
+                                      iter(right, x, v, candidate)?))
+
+                    }
+                }
+            }
+        }
+
+        match iter(&self.0, k, v, None) {
+            Ok(t) => UnbalancedMap(t),
+            Err(AlreadyPresent) => UnbalancedMap(Rc::clone(&self.0))
+        }
+    }
+
+    fn lookup(&self, k: &Self::Key) -> Option<&Self::Value> {
+        fn iter<'a, K, V>(t: &'a Rc<Tree<(K, V)>>, x: &K) -> Option<&'a V>
+        where K: PartialOrd,
+        {
+            match **t {
+                Tree::E => None,
+                Tree::T(ref left, ref y, ref right) => {
+                    if *x < (*y).0 {
+                        iter(left, x)
+                    } else if *x > (*y).0 {
+                        iter(right, x)
+                    } else {
+                        Some(&(*y).1)
+                    }
+                }
+            }
+        }
+
+        iter(&self.0, k)
+    }
+}
+
 struct Iterate<I, F> {
     current: I,
     f: F,
@@ -380,10 +460,34 @@ mod tests {
         assert_eq!(3, t.right().unwrap().depth());
     }
 
-    #[test]
+    //#[test]
     fn display_it() {
         let t = tree_of(5, 1);
         println!("{}", t);
         assert_eq!(1, 2);
+    }
+
+    #[test]
+    fn map_of_one() {
+        let m = UnbalancedMap::empty().bind("zero", 0u8);
+        assert_eq!(Some(&0), m.lookup(&"zero"));
+    }
+
+    #[test]
+    fn map_of_two() {
+        let m = UnbalancedMap::empty()
+            .bind("zero", 0u8)
+            .bind("one", 1u8);
+        assert_eq!(Some(&0), m.lookup(&"zero"));
+        assert_eq!(Some(&1), m.lookup(&"one"));
+    }
+
+    #[test]
+    fn map_double_bind() {
+        let m = UnbalancedMap::empty()
+            .bind("zero", 0u8)
+            .bind("one", 1u8);
+        let m1 = m.bind("one", 15);
+        assert_eq!(Some(&1), m.lookup(&"one"));
     }
 }
