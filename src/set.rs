@@ -333,6 +333,10 @@ where E: Clone,
 fn tree_of<E>(size: usize, value: E) -> Rc<Tree<E>>
 where E: Clone
 {
+    fn subtree_size(x: usize) -> usize {
+        ((x - 1) as f64 / 2.0).floor() as usize
+    }
+
     fn create2<E>(m: usize, value: E) -> (Rc<Tree<E>>, Rc<Tree<E>>)
     where E: Clone
     {
@@ -347,13 +351,11 @@ where E: Clone
         0 => Tree::empty(),
         1 => Tree::leaf(value),
         size if size % 2 == 0 => {
-            let subtree_size = ((size - 1) as f64 / 2.0).floor() as usize;
-            let (larger, smaller) = create2(subtree_size, value.clone());
+            let (larger, smaller) = create2(subtree_size(size), value.clone());
             Tree::node(&larger, value, &smaller)
         },
         size if size % 2 == 1 => {
-            let subtree_size = ((size - 1) as f64 / 2.0).floor() as usize;
-            let subtree = tree_of(subtree_size, value.clone());
+            let subtree = tree_of(subtree_size(size), value.clone());
             Tree::node(&subtree, value, &subtree)
         },
         _ => unreachable!("all numbers are odd or even"),
